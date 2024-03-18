@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package microscurid.v0;
+
+option go_package = "bitbucket.org/scurid/edgeagentapis/pkg/grpc/microscurid/v0";
+
+/*
+RegisterDeviceIdentity contains the required structure to register a newly generated Identity on the hardware
+TODO: Enhance with other hardware details to include DeviceContext
+ */
+message RegisterDeviceIdentity{
+  string did = 1; // DID generated on the device
+  int64 unixTime = 2; // time of request
+  string deviceName = 3; // device name provided by the user
+}
+/*
+RegisterDeviceIdentityRes returns required response.
+ */
+message RegisterDeviceIdentityRes{
+  bool result = 1 ;
+}
+
+message VerifySignature {
+  string signature = 1;
+  string msgHashPayload = 2;
+  string did = 3;
+  string compressedPublicKey = 4;
+}
+
+// Used for log in
+message Login {
+  string username = 1; // public DID
+}
+
+message LoginRes {
+  string token = 1; // short lived encrypted token returned by the server on successful login
+}
+
+/*
+Data structure for each of these requests can be similar to the ones used in the Scurid Edge Agent API
+ */
+
+message ReqMetadata {
+  enum ReqType {
+    UnknownReq = 0; // UnknownReq, default fallback field in case unknown enum information is sent from the MicroScurid
+    IdentityRegistration = 1; // IdentityRegistration, used for registering an incoming request with DID (identity) from the device via MicroScurid
+    Verify = 2; // Verify, used for verifying the signature coming along with the identity and the
+  }
+  ReqType reqType = 1;
+  optional RegisterDeviceIdentity registerDeviceIdentity = 2;
+  optional VerifySignature verifySignature = 3;
+  optional Login login = 4;
+}
