@@ -1,4 +1,4 @@
-use secp256k1::ecdsa::{SerializedSignature, Signature};
+use libsecp256k1::{util::SignatureArray, Signature};
 use std::io::Result;
 
 pub struct Did {
@@ -45,14 +45,14 @@ impl Did {
         })
     }
 
-    pub fn create_signature(&self, message: &str) -> SerializedSignature {
-        let signature = self.keys.generate_signature(message);
+    pub fn create_signature(&self, message: &str) -> Result<SignatureArray> {
+        let signature = self.keys.generate_signature(message)?;
 
-        signature.serialize_der()
+        Ok(signature.serialize_der())
     }
 
     pub fn verify_signature(&self, message: &str, der_serialized_signature: &[u8]) -> bool {
-        let sign = match Signature::from_der(der_serialized_signature) {
+        let sign = match Signature::parse_der(der_serialized_signature) {
             Ok(s) => s,
             Err(_) => return false
         };
@@ -78,16 +78,19 @@ impl Did {
 mod tests {
     use std::fs;
 
-    use secp256k1::ecdsa::Signature;
+    use libsecp256k1::Signature;
     use crate::keys::Keys;
 
     #[test]
     fn create_signature() {
         let did = super::Did::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
+        let ser_signature = match did.create_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature")
+        };
 
-        let sig = match Signature::from_der(&ser_signature) {
+        let sig = match Signature::parse_der(&ser_signature.as_ref()) {
             Ok(s) => s,
             Err(_) => panic!("failed to parse signature")
         };
@@ -99,21 +102,30 @@ mod tests {
     fn verify_correct_signature() {
         let did = super::Did::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
-        assert!(did.verify_signature(message, &ser_signature));
+        let ser_signature = match did.create_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature")
+        };
+        assert!(did.verify_signature(message, &ser_signature.as_ref()));
     }
 
     #[test]
     fn verify_altered_signature() {
         let did = super::Did::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
-        assert!(did.verify_signature(message, &ser_signature));
+        let ser_signature = match did.create_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature")
+        };
+        assert!(did.verify_signature(message, &ser_signature.as_ref()));
         
         let keys = Keys::new();
-        let different_signature = keys.generate_signature(message);
+        let different_signature = match keys.generate_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature")
+        };
         
-        assert!(!did.verify_signature(message, &different_signature.serialize_der()));
+        assert!(!did.verify_signature(message, &different_signature.serialize_der().as_ref()));
     }
 
     #[test]
