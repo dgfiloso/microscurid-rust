@@ -5,17 +5,18 @@ use prost::Message;
 use libsecp256k1::util::SignatureArray;
 
 use crate::did::Did;
+use crate::keys::KeysStorage;
 use crate::microscurid;
 
 const SERVER_PORT: u32 = 8888;
 
-pub struct Agent {
-    did: Did,
+pub struct Agent<T>  where T: KeysStorage {
+    did: Did<T>,
     device_name: String,
     hostname: String,
 }
 
-impl Agent {
+impl<T: KeysStorage> Agent<T> {
     pub fn new(device_name: &str, hostname: &str) -> Self {
         let did = super::did::Did::new();
         let name = String::from(device_name);
@@ -27,7 +28,7 @@ impl Agent {
         }
     }
 
-    pub fn from_did(did: Did, device_name: &str, hostname: &str) -> Self {
+    pub fn from_did(did: Did<T>, device_name: &str, hostname: &str) -> Self {
         let name = String::from(device_name);
         let server_hostname = String::from(hostname);
         Agent {
@@ -37,7 +38,7 @@ impl Agent {
         }
     }
 
-    pub fn get_did(&self) -> &Did {
+    pub fn get_did(&self) -> &Did<T> {
         &self.did
     }
 
@@ -121,10 +122,12 @@ fn get_sys_time_in_secs() -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use crate::keys::linuxkeys::LinuxKeys;
+    
     #[test]
     fn create_from_did() {
-        let did = super::Did::new();
-        let did2 = match super::Did::from_keys() {
+        let did = super::Did::<LinuxKeys>::new();
+        let did2 = match super::Did::<LinuxKeys>::from_keys() {
             Ok(d) => d,
             Err(e) => panic!("failed to create did from existing keys : {:?}", e)
         };

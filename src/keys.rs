@@ -1,32 +1,33 @@
-use std::fs::File;
-use std::io::{Read, Write, Result};
-use std::path::Path;
-
-// use secp256k1::ecdsa::Signature;
-// use secp256k1::rand::rngs::OsRng;
-// use secp256k1::{Message, PublicKey, Secp256k1, SecretKey};
+use std::io::Result;
 use rand::rngs::OsRng;
-use libsecp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature, sign, verify};
-use sha3::{Shake256, digest::{Update, ExtendableOutput}};
+use libsecp256k1::{Message, PublicKey, SecretKey, Signature, sign, verify};
+use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
 
-const PRIV_KEY_LEN: usize = 32;
-const COMP_PUB_KEY_LEN: usize = 33;
+pub const PRIV_KEY_LEN: usize = 32;
+pub const COMP_PUB_KEY_LEN: usize = 33;
 const HASH_LEN: usize = 32;
 const ETHEREUM_ADDR_LEN: usize = 20;
-const PRIV_KEY_FILE: &str = "key";
-const PUB_KEY_FILE: &str = "key.pub";
 // const EIP55_ADDR_LEN: usize = 2 * ETHEREUM_ADDR_LEN;
 // const DER_SERIALIZED_SIGNATURE_LEN: usize = 72; // 23 * 3 + 3
 
+pub mod linuxkeys;
+
+#[derive(Copy, Clone)]
 pub struct Keys {
     secret_key: SecretKey,
     pub public_key: PublicKey,
 }
 
+pub trait KeysStorage {
+    fn new() -> Self;
+    fn get_keys(&self) -> Keys;
+    fn from_saved() -> Self;
+    fn save(&self) -> Result<()>;
+    fn exist() -> bool;
+} 
+
 impl Keys {
     pub fn new() -> Self {
-        // let secp = Secp256k1::new();
-        // let (secret_key, public_key) = secp.generate_keypair(&mut OsRng);
         let secret_key = SecretKey::random(&mut OsRng);
         let public_key = PublicKey::from_secret_key(&secret_key);
         Keys {
@@ -35,24 +36,7 @@ impl Keys {
         }
     }
 
-    pub fn from_file() -> std::io::Result<Self> {
-        let mut file = File::open(PRIV_KEY_FILE)?;
-        let mut secret_key = [0u8; PRIV_KEY_LEN];
-        file.read(&mut secret_key)?;
-
-        let mut file = File::open(PUB_KEY_FILE)?;
-        let mut compressed_pub_key = [0u8; COMP_PUB_KEY_LEN];
-        file.read(&mut compressed_pub_key)?;
-        
-        Ok(Keys{
-            secret_key: SecretKey::parse_slice(&secret_key).unwrap(),
-            public_key: PublicKey::parse_slice(&compressed_pub_key, Some(PublicKeyFormat::Compressed)).unwrap(),
-        })
-    }
-
     pub fn generate_new_keys(&mut self) {
-        // let secp = Secp256k1::new();
-        // let (secret_key, public_key) = secp.generate_keypair(&mut OsRng);
         self.secret_key = SecretKey::random(&mut OsRng);
         self.public_key = PublicKey::from_secret_key(&self.secret_key);
     }
@@ -62,18 +46,12 @@ impl Keys {
         hasher.update(message);
         let mut reader = hasher.finalize_xof();
         let mut hash = [0u8; HASH_LEN];
-        match reader.read(&mut hash) {
-            Ok(_) => hash,
-            Err(_) => panic!("error hashing message : {:?}", message)
-        }
+        reader.read(&mut hash);
+        hash
     }
 
     pub fn generate_signature(&self, message: &str) -> Result<Signature> {
         let hash = Self::hash_message(message.as_bytes());
-
-        // let secp = Secp256k1::new();
-        // let data = Message::from_digest(hash);
-        // secp.sign_ecdsa(&data, &self.secret_key);
         let data: Message;
         match Message::parse_slice(&hash) {
             Ok(m) => data = m,
@@ -92,20 +70,6 @@ impl Keys {
             Err(_) => return false
         }
         verify(&msg, signature, &self.public_key)
-    }
-
-    pub fn save(&self) -> std::io::Result<()> {
-        let mut file = File::create(PRIV_KEY_FILE)?;
-        file.write_all(&self.secret_key.serialize())?;
-
-        let mut file = File::create(PUB_KEY_FILE)?;
-        file.write_all(&self.public_key.serialize_compressed())?;
-
-        Ok(())
-    }
-
-    pub fn keys_exist() -> bool {
-        Path::new(PRIV_KEY_FILE).exists() && Path::new(PUB_KEY_FILE).exists()
     }
 
     pub fn generate_ethereum_addr(&self) -> [u8; ETHEREUM_ADDR_LEN] {

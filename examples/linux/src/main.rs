@@ -2,19 +2,19 @@ use std::fs::File;
 use std::io::{BufReader, Read, Result, Write};
 use rustls::{pki_types, ClientConfig, RootCertStore};
 
-use microscurid_rust::{agent, did};
+use microscurid_rust::{agent, did, keys::linuxkeys::LinuxKeys};
 
 const CERT_FILE: &str = "cert.pem";
 
 fn main() {
     println!("Welcome!");
 
-    let did = did::Did::from_keys();
+    let did = did::Did::<LinuxKeys>::from_keys();
     let agent;
     if did.is_err() {
-        agent = agent::Agent::new("rust-agent", "localhost");
+        agent = agent::Agent::new("rust-agent-linux", "localhost");
     } else {
-        agent = agent::Agent::from_did(did.unwrap(), "rust-agent", "localhost");
+        agent = agent::Agent::from_did(did.unwrap(), "rust-agent-linux", "localhost");
     }
     println!("Agent Did : {}", agent.get_did().to_string());
     println!("Agent Public Key : 0x{}", agent.get_did().get_public_key());

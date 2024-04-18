@@ -52,7 +52,7 @@ fn main() {
     let did = did::Did::from_keys();
     let agent;
     if did.is_err() {
-        agent = agent::Agent::new("rust-agent", "localhost");
+        agent = agent::Agent::new("rust-agent-esp32s3", "localhost");
     } else {
         agent = agent::Agent::from_did(did.unwrap(), "rust-agent", "localhost");
     }

@@ -32,6 +32,8 @@ pub const CA_CERT: &str = "-----BEGIN CERTIFICATE-----
 
 ### Build, flash and monitor ESP32S3 example
 
+Tested with the [Adafruit ESP32-S3 TFT Feather](https://learn.adafruit.com/adafruit-esp32-s3-tft-feather/overview) board.
+
 ```bash
 $ cd examples/esp32s3
 $ cargo build
