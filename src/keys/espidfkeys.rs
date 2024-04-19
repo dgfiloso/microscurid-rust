@@ -7,13 +7,13 @@ use super::{Keys, KeysStorage, COMP_PUB_KEY_LEN, PRIV_KEY_LEN};
 const PRIV_KEY_FILE: &str = "key";
 const PUB_KEY_FILE: &str = "key.pub";
 
-pub struct Esp32s3Keys {
+pub struct EspIdfKeys {
     keys: Keys,
 }
 
-impl KeysStorage for Esp32s3Keys {
+impl KeysStorage for EspIdfKeys {
     fn new() -> Self {
-        Esp32s3Keys {
+        EspIdfKeys {
             keys: super::Keys::new(),
         }
     }
@@ -26,7 +26,7 @@ impl KeysStorage for Esp32s3Keys {
         let nvs_default_partition: EspNvsPartition<NvsDefault> = match EspDefaultNvsPartition::take() {
             Ok(nvs_default_partition) => nvs_default_partition,
             Err(_) => {
-                return Esp32s3Keys {
+                return EspIdfKeys {
                     keys: super::Keys::new(),
                 }
             }
@@ -58,7 +58,7 @@ impl KeysStorage for Esp32s3Keys {
             Err(e) => log::info!("Couldn't get key {} because{:?}", PUB_KEY_FILE, e),
         };
 
-        Esp32s3Keys {
+        EspIdfKeys {
             keys: Keys {
                 secret_key: SecretKey::parse_slice(&secret_key).unwrap(),
                 public_key: PublicKey::parse_slice(

@@ -1122,6 +1122,8 @@ dependencies = [
  "prost",
  "prost-build",
  "rand",
+ "rustls",
+ "rustls-pemfile",
  "sha3",
 ]
 

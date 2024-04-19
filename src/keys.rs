@@ -12,9 +12,8 @@ const ETHEREUM_ADDR_LEN: usize = 20;
 
 #[cfg(target_os = "linux")]
 pub mod linuxkeys;
-// #[cfg(target_os = "espidf")]
-#[cfg(not(target_os = "linux"))]
-pub mod esp32s3keys;
+#[cfg(target_os = "espidf")]
+pub mod espidfkeys;
 
 #[derive(Copy, Clone)]
 pub struct Keys {

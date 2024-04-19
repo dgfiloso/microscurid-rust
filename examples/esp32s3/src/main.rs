@@ -2,12 +2,12 @@
 use core::convert::TryInto;
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_svc::tls::{self, EspTls, X509};
+
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition};
-use core::ffi::CStr;
 
-use microscurid_rust::{agent, did, keys::esp32s3keys::Esp32s3Keys};
+use microscurid_rust::{agent::espidfagent::EspIdfAgent, did::Did, keys::espidfkeys::EspIdfKeys};
+use microscurid_rust::agent::AgentTrait;
 
 mod secrets;
 
@@ -36,12 +36,12 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("Wifi DHCP info: {:?}", ip_info);
 
-    let did = did::Did::<Esp32s3Keys>::from_keys();
-    let agent = agent::Agent::from_did(did, "rust-agent-esp32s3", secrets::SCURID_SERVER);
+    let did = Did::<EspIdfKeys>::from_keys();
+    let agent = EspIdfAgent::<EspIdfKeys>::from_did(did, "rust-agent-esp32s3", secrets::SCURID_SERVER);
     println!("Agent Did : {}", agent.get_did().to_string());
     println!("Agent Public Key : 0x{}", agent.get_did().get_public_key());
 
-    match agent.register_did(send_msg) {
+    match agent.register_did(secrets::CA_CERT) {
         Ok(_) => println!("did registered successfully"),
         Err(e) => panic!("failed to send did : {:?}", e),
     }
@@ -53,7 +53,7 @@ fn main() -> anyhow::Result<()> {
     };
     assert!(agent.get_did().verify_signature(message, &signature.as_ref()));
 
-    match agent.message_verification(message, &signature, send_msg) {
+    match agent.message_verification(message, &signature, secrets::CA_CERT) {
         Ok(_) => log::info!("message verified successfully"),
         Err(e) => panic!("failed to verify message : {:?}", e),
     }
@@ -84,41 +84,4 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()>
     log::info!("Wifi netif up");
 
     Ok(())
-}
-
-// Reference https://github.com/esp-rs/esp-idf-svc/blob/master/examples/tls.rs
-fn send_msg(message: Vec<u8>, hostname: &str, port: u32, expect_response: bool) -> std::io::Result<Vec<u8>> {
-    let mut tls = match EspTls::new() {
-        Ok(tls) => tls,
-        Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-    };
-
-    match tls.connect(
-        hostname,
-        port as u16,
-        &tls::Config {
-            common_name: Some(hostname),
-            ca_cert: Some(X509::pem(
-                CStr::from_bytes_with_nul(secrets::CA_CERT.as_bytes()).unwrap(),
-            )),
-            ..Default::default()
-        },
-    ) {
-        Ok(_) => (),
-        Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-    }
-
-    tls.write_all(message.as_slice()).unwrap();
-
-    if expect_response {
-        let mut response = [0; 512];
-        let read_size = match tls.read(&mut response) {
-            Ok(r) => r,
-            Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-        };
-        
-        Ok(response[0..read_size].to_vec())
-    } else {
-        Ok(Vec::new())
-    }
 }

@@ -10,10 +10,24 @@ use crate::microscurid;
 
 const SERVER_PORT: u32 = 8888;
 
+#[cfg(target_os = "linux")]
+pub mod linuxagent;
+#[cfg(target_os = "espidf")]
+pub mod espidfagent;
+
 pub struct Agent<T>  where T: KeysStorage {
     did: Did<T>,
     device_name: String,
     hostname: String,
+}
+
+pub trait AgentTrait<T> where T: KeysStorage {
+    fn new(device_name: &str, hostname: &str) -> Self;
+    fn from_did(did: Did<T>, device_name: &str, hostname: &str) -> Self;
+    fn get_did(&self) -> &Did<T>;
+    fn register_did(&self, cert: &str) -> Result<()>;
+    fn message_verification(&self, message: &str, ser_signature: &SignatureArray, cert: &str) -> Result<()> ;
+    fn send_msg(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>;
 }
 
 impl<T: KeysStorage> Agent<T> {
@@ -42,11 +56,11 @@ impl<T: KeysStorage> Agent<T> {
         &self.did
     }
 
-    pub fn register_did(&self, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
+    pub fn register_did(&self, cert: &str, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
         let register_metadata_message = self.create_register_metadata_message();
         let buf = register_metadata_message.encode_to_vec();
 
-        let res = match send_msg(buf, self.hostname.as_str(), SERVER_PORT, true) {
+        let res = match send_msg(buf, self.hostname.as_str(), SERVER_PORT, cert, true) {
             Ok(r) => r,
             Err(e) => panic!("failed to send/receive message : {:?}", e),
         };
@@ -80,11 +94,11 @@ impl<T: KeysStorage> Agent<T> {
         register_metadata
     }
 
-    pub fn message_verification(&self, message: &str, ser_signature: &SignatureArray, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
+    pub fn message_verification(&self, message: &str, ser_signature: &SignatureArray, cert: &str, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
         let verify_signature_metadata_message = self.create_verify_signature_metadata_message(message, ser_signature);
         let buf = verify_signature_metadata_message.encode_to_vec();
 
-        let _ = send_msg(buf, self.hostname.as_str(), SERVER_PORT, false);
+        let _ = send_msg(buf, self.hostname.as_str(), SERVER_PORT, cert, false);
 
         Ok(())
     }
