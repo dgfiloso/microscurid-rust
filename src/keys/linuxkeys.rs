@@ -81,10 +81,65 @@ impl KeysStorage for LinuxKeys {
         Ok(())
     }
 
-    fn exist() -> bool {
+    fn exist(&self) -> bool {
         Path::new(PRIV_KEY_FILE).exists() && Path::new(PUB_KEY_FILE).exists()
     }
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use std::fs;
+
+    use crate::keys::{linuxkeys::{PRIV_KEY_FILE, PUB_KEY_FILE}, KeysStorage};
+
+    #[test]
+    fn keys_generation() {
+        let platformkeys = super::LinuxKeys::new();
+        println!("secret key {} bytes : 0x{}", platformkeys.get_keys().secret_key.serialize().len(), hex::encode_upper(platformkeys.get_keys().secret_key.serialize()));
+        println!("compressed public key {} bytes : 0x{}", platformkeys.get_keys().public_key.serialize_compressed().len(), hex::encode_upper(platformkeys.get_keys().public_key.serialize_compressed()));
+    }
+
+    #[test]
+    fn return_keys() {
+        let platformkeys = super::LinuxKeys::new();
+        assert_eq!(platformkeys.get_keys().secret_key.serialize().len(), platformkeys.keys.secret_key.serialize().len());
+        assert_eq!(platformkeys.get_keys().public_key.serialize_compressed().len(), platformkeys.keys.public_key.serialize_compressed().len());
+    }
+
+    #[test]
+    fn keys_exist() {
+        match fs::remove_file(PRIV_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PRIV_KEY_FILE),
+        };
+        match fs::remove_file(PUB_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PUB_KEY_FILE),
+        };
+        
+        let platformkeys = super::LinuxKeys::new();
+        assert!(!platformkeys.exist());
+        let result = platformkeys.save();
+        assert!(result.is_ok());
+        assert!(platformkeys.exist());
+    }
+
+    #[test]
+    fn save_keys() {
+        let platformkeys = super::LinuxKeys::new();
+        let result = platformkeys.save();
+        assert!(result.is_ok());
+        assert!(platformkeys.exist());
+    }
+
+    #[test]
+    fn load_keys() {
+        let platformkeys1 = super::LinuxKeys::new();
+        let result = platformkeys1.save();
+        assert!(result.is_ok());
+
+        let platformkeys2 = super::LinuxKeys::from_saved();
+        assert_eq!(platformkeys1.get_keys().secret_key.serialize(), platformkeys2.get_keys().secret_key.serialize());
+        assert_eq!(platformkeys1.get_keys().public_key.serialize_compressed(), platformkeys2.get_keys().public_key.serialize_compressed());
+    }
+}

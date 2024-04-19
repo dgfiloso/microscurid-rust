@@ -1,4 +1,4 @@
 **/target
 **/key
 **/key.pub
-**/cert.pem
+**/ca-cert.pem

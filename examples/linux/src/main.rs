@@ -4,18 +4,14 @@ use rustls::{pki_types, ClientConfig, RootCertStore};
 
 use microscurid_rust::{agent, did, keys::linuxkeys::LinuxKeys};
 
-const CERT_FILE: &str = "cert.pem";
+const CERT_FILE: &str = "ca-cert.pem";
 
 fn main() {
     println!("Welcome!");
 
     let did = did::Did::<LinuxKeys>::from_keys();
-    let agent;
-    if did.is_err() {
-        agent = agent::Agent::new("rust-agent-linux", "localhost");
-    } else {
-        agent = agent::Agent::from_did(did.unwrap(), "rust-agent-linux", "localhost");
-    }
+    let agent = agent::Agent::from_did(did, "rust-agent-linux", "localhost");
+    
     println!("Agent Did : {}", agent.get_did().to_string());
     println!("Agent Public Key : 0x{}", agent.get_did().get_public_key());
 
@@ -62,9 +58,7 @@ fn send_msg(message: Vec<u8>, hostname: &str, port: u32, expect_response: bool) 
 
     if expect_response {
         let mut response = Vec::new();
-        tls.read_to_end(&mut response).unwrap();
-        // stdout().write_all(&response).unwrap();
-    
+        tls.read_to_end(&mut response).unwrap();    
         Ok(response)
     } else {
         Ok(Vec::new())

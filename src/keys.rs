@@ -10,7 +10,11 @@ const ETHEREUM_ADDR_LEN: usize = 20;
 // const EIP55_ADDR_LEN: usize = 2 * ETHEREUM_ADDR_LEN;
 // const DER_SERIALIZED_SIGNATURE_LEN: usize = 72; // 23 * 3 + 3
 
+#[cfg(target_os = "linux")]
 pub mod linuxkeys;
+// #[cfg(target_os = "espidf")]
+#[cfg(not(target_os = "linux"))]
+pub mod esp32s3keys;
 
 #[derive(Copy, Clone)]
 pub struct Keys {
@@ -23,7 +27,7 @@ pub trait KeysStorage {
     fn get_keys(&self) -> Keys;
     fn from_saved() -> Self;
     fn save(&self) -> Result<()>;
-    fn exist() -> bool;
+    fn exist(&self) -> bool;
 } 
 
 impl Keys {

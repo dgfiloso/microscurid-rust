@@ -30,18 +30,18 @@ impl<T: KeysStorage> Did<T> {
         }
     }
 
-    pub fn from_keys() -> Result<Self> {
+    pub fn from_keys() -> Self {
         let platformkeys = T::from_saved();
         let ethereum_addr = platformkeys.get_keys().generate_ethereum_addr();
         let scurid_identifier = super::keys::encode_eip55_hex(&ethereum_addr);
 
-        Ok(Did {
+        Did {
             platformkeys,
             method: String::from("scurid"),
             identifier: scurid_identifier.to_string(),
             fragment: [0u8; 20],
             path: [0u8; 20]
-        })
+        }
     }
 
     pub fn create_signature(&self, message: &str) -> Result<SignatureArray> {
@@ -149,10 +149,7 @@ mod tests {
 
     #[test]
     fn create_from_existing() {
-        let did = match super::Did::<LinuxKeys>::from_keys() {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create did from existing keys : {:?}", e)
-        };
+        let did = super::Did::<LinuxKeys>::from_keys();
 
         let platformkeys = LinuxKeys::from_saved();
 
@@ -163,28 +160,28 @@ mod tests {
     }
 
     #[test]
-    fn create_from_existing_no_files() {
-        match fs::remove_file("key") {
-            Ok(_) => (),
-            Err(_) => println!("failed to remove key file"),
-        };
-        match fs::remove_file("key.pub") {
-            Ok(_) => (),
-            Err(_) => println!("failed to remove key.pub file"),
-        };
-
-        let did = super::Did::<LinuxKeys>::from_keys();
-        assert!(did.is_err());
+    fn same_keys_same_did() {
+        let did1 = super::Did::<LinuxKeys>::new();
+        let did2 = super::Did::<LinuxKeys>::from_keys();
+        assert_eq!(did1.platformkeys.get_keys().public_key.serialize(), did2.platformkeys.get_keys().public_key.serialize());
+        assert_eq!(did1.to_string(), did2.to_string());
     }
 
     #[test]
-    fn same_keys_same_did() {
+    fn new_keys_if_no_exist() {
+        const PRIV_KEY_FILE: &str = "key";
+        const PUB_KEY_FILE: &str = "key.pub";
         let did1 = super::Did::<LinuxKeys>::new();
-        let did2 = match super::Did::<LinuxKeys>::from_keys() {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create did from existing keys : {:?}", e)
+        match fs::remove_file(PRIV_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PRIV_KEY_FILE),
         };
-        assert_eq!(did1.platformkeys.get_keys().public_key.serialize(), did2.platformkeys.get_keys().public_key.serialize());
-        assert_eq!(did1.to_string(), did2.to_string());
+        match fs::remove_file(PUB_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PUB_KEY_FILE),
+        };
+        let did2 = super::Did::<LinuxKeys>::from_keys();
+        assert_ne!(did1.platformkeys.get_keys().public_key.serialize(), did2.platformkeys.get_keys().public_key.serialize());
+        assert_ne!(did1.to_string(), did2.to_string());
     }
 }

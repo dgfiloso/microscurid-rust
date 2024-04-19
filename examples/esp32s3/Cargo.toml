@@ -32,6 +32,10 @@ embedded-hal = "1.0.0"
 embedded-svc = "0.27.1"
 heapless = "0.8.0"
 microscurid-rust = {path = "../../"}
+anyhow = "1.0.82"
 
 [build-dependencies]
 embuild = "0.31.3"
+
+[package.metadata.espflash]
+partition_table = "partitions.csv"

@@ -127,10 +127,7 @@ mod tests {
     #[test]
     fn create_from_did() {
         let did = super::Did::<LinuxKeys>::new();
-        let did2 = match super::Did::<LinuxKeys>::from_keys() {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create did from existing keys : {:?}", e)
-        };
+        let did2 = super::Did::<LinuxKeys>::from_keys();
         println!("Did : {}", did2.to_string());
         assert_eq!(did.to_string(), did2.to_string());
 

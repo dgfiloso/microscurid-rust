@@ -4,7 +4,7 @@
 
 ### Configuration
 
-Create file `cert.pem` and add the certificate to the same folder as the app binary.
+Create file `ca-cert.pem` and add the certificate to the same folder as the app binary.
 
 ### Run
 
@@ -20,14 +20,15 @@ $ cargo run --release
 
 ### Configuration
 
-Create the file `src/secrets.rs` and add the following code, according to your WiFi network and certificate.
+Create the file `src/secrets.rs` and add the following code, according to your WiFi network, Scurid server IP address and certificate. It is really important that the `CA_CERT` constant ends in `\0`.
 
 ```rust
 pub const WIFI_SSID : &str = "ssid";
 pub const WIFI_PASSWORD : &str = "password";
+pub const SCURID_SERVER : &str = "192.168.20.25";
 pub const CA_CERT: &str = "-----BEGIN CERTIFICATE-----
 ...
------END CERTIFICATE-----";
+-----END CERTIFICATE-----\0";
 ```
 
 ### Build, flash and monitor ESP32S3 example
