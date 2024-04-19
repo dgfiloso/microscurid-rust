@@ -15,6 +15,8 @@ pub mod linuxagent;
 #[cfg(target_os = "espidf")]
 pub mod espidfagent;
 
+type SendMessageFunc = fn(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>;
+
 pub struct Agent<T>  where T: KeysStorage {
     did: Did<T>,
     device_name: String,
@@ -56,7 +58,7 @@ impl<T: KeysStorage> Agent<T> {
         &self.did
     }
 
-    pub fn register_did(&self, cert: &str, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
+    pub fn register_did(&self, cert: &str, send_msg: SendMessageFunc) -> Result<()> {
         let register_metadata_message = self.create_register_metadata_message();
         let buf = register_metadata_message.encode_to_vec();
 
@@ -78,11 +80,11 @@ impl<T: KeysStorage> Agent<T> {
     }
 
     fn create_register_device_identity(&self) -> microscurid::v0::RegisterDeviceIdentity {
-        let mut register_id = microscurid::v0::RegisterDeviceIdentity::default();
-        register_id.did = self.did.to_string();
-        register_id.unix_time = get_sys_time_in_secs();
-        register_id.device_name = self.device_name.clone();
-        register_id
+        microscurid::v0::RegisterDeviceIdentity {
+            did: self.did.to_string(),
+            unix_time: get_sys_time_in_secs(),
+            device_name: self.device_name.clone(),
+        }
     }
 
     fn create_register_metadata_message(&self) -> microscurid::v0::ReqMetadata {
@@ -94,7 +96,7 @@ impl<T: KeysStorage> Agent<T> {
         register_metadata
     }
 
-    pub fn message_verification(&self, message: &str, ser_signature: &SignatureArray, cert: &str, send_msg: fn(message: Vec<u8>, hostname: &str, port: u32, cert: &str, expect_response: bool) -> Result<Vec<u8>>) -> Result<()> {
+    pub fn message_verification(&self, message: &str, ser_signature: &SignatureArray, cert: &str, send_msg: SendMessageFunc) -> Result<()> {
         let verify_signature_metadata_message = self.create_verify_signature_metadata_message(message, ser_signature);
         let buf = verify_signature_metadata_message.encode_to_vec();
 

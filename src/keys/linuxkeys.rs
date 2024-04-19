@@ -34,7 +34,7 @@ impl KeysStorage for LinuxKeys {
             }
         };
         let mut secret_key = [0u8; PRIV_KEY_LEN];
-        match file.read(&mut secret_key) {
+        match file.read_exact(&mut secret_key) {
             Ok(_) => (),
             Err(_) => {
                 return LinuxKeys {
@@ -51,7 +51,7 @@ impl KeysStorage for LinuxKeys {
             }}
         };
         let mut compressed_pub_key = [0u8; COMP_PUB_KEY_LEN];
-        match file.read(&mut compressed_pub_key) {
+        match file.read_exact(&mut compressed_pub_key) {
             Ok(_) => (),
             Err(_) => {
                 return LinuxKeys {
