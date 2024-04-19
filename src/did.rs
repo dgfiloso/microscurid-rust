@@ -1,19 +1,31 @@
-use secp256k1::ecdsa::{SerializedSignature, Signature};
+use libsecp256k1::{util::SignatureArray, Signature};
+use core::fmt;
 use std::io::Result;
 
-pub struct Did {
-    keys: super::keys::Keys,
+use crate::keys::KeysStorage;
+
+pub struct Did<T>
+where
+    T: KeysStorage,
+{
+    keys: T,
     method: String,
     identifier: String,
-    fragment: [u8;20],
-    path: [u8;20]
+    fragment: [u8; 20],
+    path: [u8; 20],
 }
 
-impl Did {
+impl<T: KeysStorage> Default for Did<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: KeysStorage> Did<T> {
     pub fn new() -> Self {
-        let keys = super::keys::Keys::new();
+        let keys = T::new();
         match keys.save() {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => panic!("failed to save keys : {:?}", e),
         }
         let ethereum_addr = keys.generate_ethereum_addr();
@@ -24,53 +36,55 @@ impl Did {
             method: String::from("scurid"),
             identifier: scurid_identifier.to_string(),
             fragment: [0u8; 20],
-            path: [0u8; 20]
+            path: [0u8; 20],
         }
     }
 
-    pub fn from_keys() -> Result<Self> {
-        let keys = match super::keys::Keys::from_file() {
-            Ok(k) => k,
-            Err(e) => return Err(e)
-        };
+    pub fn from_keys() -> Self {
+        let keys = T::from_saved();
         let ethereum_addr = keys.generate_ethereum_addr();
         let scurid_identifier = super::keys::encode_eip55_hex(&ethereum_addr);
 
-        Ok(Did {
+        Did {
             keys,
             method: String::from("scurid"),
             identifier: scurid_identifier.to_string(),
             fragment: [0u8; 20],
-            path: [0u8; 20]
-        })
+            path: [0u8; 20],
+        }
     }
 
-    pub fn create_signature(&self, message: &str) -> SerializedSignature {
-        let signature = self.keys.generate_signature(message);
+    pub fn create_signature(&self, message: &str) -> Result<SignatureArray> {
+        let signature = self.keys.generate_signature(message)?;
 
-        signature.serialize_der()
+        Ok(signature.serialize_der())
     }
 
     pub fn verify_signature(&self, message: &str, der_serialized_signature: &[u8]) -> bool {
-        let sign = match Signature::from_der(der_serialized_signature) {
+        let sign = match Signature::parse_der(der_serialized_signature) {
             Ok(s) => s,
-            Err(_) => return false
+            Err(_) => return false,
         };
         self.keys.verify(message, &sign)
     }
 
     pub fn get_public_key(&self) -> String {
-        let compact_pub_key = self.keys.public_key.serialize();
+        let compact_pub_key = self.keys.get_public_key().serialize();
         hex::encode(compact_pub_key)
-
     }
 
-    pub fn to_string(&self) -> String {
-        let mut did = String::from("did:");
-        did.push_str(&self.method);
-        did.push_str(":");
-        did.push_str(&self.identifier);
-        did
+    // pub fn to_string(&self) -> String {
+    //     let mut did = String::from("did:");
+    //     did.push_str(&self.method);
+    //     did.push(':');
+    //     did.push_str(&self.identifier);
+    //     did
+    // }
+}
+
+impl<T: KeysStorage> fmt::Display for Did<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "did:{}:{}", self.method, self.identifier)
     }
 }
 
@@ -78,18 +92,21 @@ impl Did {
 mod tests {
     use std::fs;
 
-    use secp256k1::ecdsa::Signature;
-    use crate::keys::Keys;
+    use crate::keys::{linuxkeys::LinuxKeys, Keys, KeysStorage};
+    use libsecp256k1::Signature;
 
     #[test]
     fn create_signature() {
-        let did = super::Did::new();
+        let did = super::Did::<LinuxKeys>::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
-
-        let sig = match Signature::from_der(&ser_signature) {
+        let ser_signature = match did.create_signature(message) {
             Ok(s) => s,
-            Err(_) => panic!("failed to parse signature")
+            Err(_) => panic!("failed to create signature"),
+        };
+
+        let sig = match Signature::parse_der(&ser_signature.as_ref()) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to parse signature"),
         };
 
         assert!(did.keys.verify(message, &sig));
@@ -97,36 +114,48 @@ mod tests {
 
     #[test]
     fn verify_correct_signature() {
-        let did = super::Did::new();
+        let did = super::Did::<LinuxKeys>::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
-        assert!(did.verify_signature(message, &ser_signature));
+        let ser_signature = match did.create_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature"),
+        };
+        assert!(did.verify_signature(message, &ser_signature.as_ref()));
     }
 
     #[test]
     fn verify_altered_signature() {
-        let did = super::Did::new();
+        let did = super::Did::<LinuxKeys>::new();
         let message = "test message";
-        let ser_signature = did.create_signature(message);
-        assert!(did.verify_signature(message, &ser_signature));
-        
+        let ser_signature = match did.create_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature"),
+        };
+        assert!(did.verify_signature(message, &ser_signature.as_ref()));
+
         let keys = Keys::new();
-        let different_signature = keys.generate_signature(message);
-        
-        assert!(!did.verify_signature(message, &different_signature.serialize_der()));
+        let different_signature = match keys.generate_signature(message) {
+            Ok(s) => s,
+            Err(_) => panic!("failed to create signature"),
+        };
+
+        assert!(!did.verify_signature(message, &different_signature.serialize_der().as_ref()));
     }
 
     #[test]
     fn public_key() {
-        let did = super::Did::new();
+        let did = super::Did::<LinuxKeys>::new();
         let pub_key = did.get_public_key();
 
-        assert_eq!(hex::encode(did.keys.public_key.serialize()), pub_key);
+        assert_eq!(
+            hex::encode(did.keys.get_public_key().serialize()),
+            pub_key
+        );
     }
 
     #[test]
     fn did_string() {
-        let did = super::Did::new();
+        let did = super::Did::<LinuxKeys>::new();
         let did_str = did.to_string();
         println!("{}", did_str);
         let did_split: Vec<&str> = did_str.split(":").collect();
@@ -138,45 +167,51 @@ mod tests {
 
     #[test]
     fn create_from_existing() {
-        let did = match super::Did::from_keys() {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create did from existing keys : {:?}", e)
-        };
+        let did = super::Did::<LinuxKeys>::from_keys();
 
-        let keys = match Keys::from_file() {
-            Ok(k) => k,
-            Err(e) => panic!("failed to load keys : {:?}", e)
-        };
+        let keys = LinuxKeys::from_saved();
 
-        assert_eq!(did.keys.public_key.serialize(), keys.public_key.serialize());
+        assert_eq!(
+            did.keys.get_public_key().serialize(),
+            keys.get_public_key().serialize()
+        );
 
-        let new_did = super::Did::new();
-        assert_ne!(new_did.keys.public_key.serialize(), keys.public_key.serialize());
-    }
-
-    #[test]
-    fn create_from_existing_no_files() {
-        match fs::remove_file("key") {
-            Ok(_) => (),
-            Err(_) => println!("failed to remove key file"),
-        };
-        match fs::remove_file("key.pub") {
-            Ok(_) => (),
-            Err(_) => println!("failed to remove key.pub file"),
-        };
-
-        let did = super::Did::from_keys();
-        assert!(did.is_err());
+        let new_did = super::Did::<LinuxKeys>::new();
+        assert_ne!(
+            new_did.keys.get_public_key().serialize(),
+            keys.get_public_key().serialize()
+        );
     }
 
     #[test]
     fn same_keys_same_did() {
-        let did1 = super::Did::new();
-        let did2 = match super::Did::from_keys() {
-            Ok(d) => d,
-            Err(e) => panic!("failed to create did from existing keys : {:?}", e)
-        };
-        assert_eq!(did1.keys.public_key.serialize(), did2.keys.public_key.serialize());
+        let did1 = super::Did::<LinuxKeys>::new();
+        let did2 = super::Did::<LinuxKeys>::from_keys();
+        assert_eq!(
+            did1.keys.get_public_key().serialize(),
+            did2.keys.get_public_key().serialize()
+        );
         assert_eq!(did1.to_string(), did2.to_string());
+    }
+
+    #[test]
+    fn new_keys_if_no_exist() {
+        const PRIV_KEY_FILE: &str = "key";
+        const PUB_KEY_FILE: &str = "key.pub";
+        let did1 = super::Did::<LinuxKeys>::new();
+        match fs::remove_file(PRIV_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PRIV_KEY_FILE),
+        };
+        match fs::remove_file(PUB_KEY_FILE) {
+            Ok(_) => (),
+            Err(_) => println!("failed to remove {} file", PUB_KEY_FILE),
+        };
+        let did2 = super::Did::<LinuxKeys>::from_keys();
+        assert_ne!(
+            did1.keys.get_public_key().serialize(),
+            did2.keys.get_public_key().serialize()
+        );
+        assert_ne!(did1.to_string(), did2.to_string());
     }
 }

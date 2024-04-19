@@ -1,7 +1,6 @@
 pub mod keys;
 pub mod did;
 pub mod agent;
-mod net;
 
 // Include `microscurid` module, which is generated from items.proto.
 pub mod microscurid {

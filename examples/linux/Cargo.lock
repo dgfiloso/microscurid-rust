@@ -1128,6 +1128,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "microscurid-rust-linux"
+version = "0.1.0"
+dependencies = [
+ "microscurid-rust",
+ "rustls",
+ "rustls-pemfile",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
