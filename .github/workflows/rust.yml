@@ -15,12 +15,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: arduino/setup-protoc@v3
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Install protoc
+      uses: arduino/setup-protoc@v3
     - name: Build library
       run: cargo build --verbose
     - name: Build linux example
       run: cd examples/linux && cargo build --verbose
+    - name: Setup ESP-IDF
+      uses: esp-rs/xtensa-toolchain@v1.5
+      with:
+        default: true
+        buildtargets: esp32s3
+        ldproxy: true
     - name: Build esp32s3 example
       run: cd examples/esp32s3 && cargo build --verbose
     # Comment unit tests because they are failing when using local files
