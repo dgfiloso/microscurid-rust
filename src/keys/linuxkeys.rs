@@ -1,7 +1,5 @@
-use libsecp256k1::{PublicKey, PublicKeyFormat, SecretKey};
-
-use super::{Keys, KeysStorage, COMP_PUB_KEY_LEN, PRIV_KEY_LEN};
-
+use libsecp256k1::{PublicKey, PublicKeyFormat, SecretKey, Signature};
+use super::{Keys, KeysStorage, COMP_PUB_KEY_LEN, ETHEREUM_ADDR_LEN, PRIV_KEY_LEN};
 use std::fs::File;
 use std::io::{Read, Result, Write};
 use std::path::Path;
@@ -20,8 +18,12 @@ impl KeysStorage for LinuxKeys {
         }
     }
 
-    fn get_keys(&self) -> Keys {
-        self.keys
+    fn generate_new_keys(&mut self) {
+        self.keys.generate_new_keys();
+    }
+
+    fn get_public_key(&self) -> PublicKey {
+        self.keys.public_key
     }
 
     fn from_saved() -> Self {
@@ -84,6 +86,18 @@ impl KeysStorage for LinuxKeys {
     fn exist(&self) -> bool {
         Path::new(PRIV_KEY_FILE).exists() && Path::new(PUB_KEY_FILE).exists()
     }
+
+    fn generate_signature(&self, message: &str) -> Result<Signature> {
+        self.keys.generate_signature(message)
+    }
+
+    fn verify(&self, message: &str, signature: &Signature) -> bool {
+        self.keys.verify(message, signature)
+    }
+
+    fn generate_ethereum_addr(&self) -> [u8; ETHEREUM_ADDR_LEN] {
+        self.keys.generate_ethereum_addr()
+    }
 }
 
 #[cfg(test)]
@@ -95,15 +109,15 @@ mod tests {
     #[test]
     fn keys_generation() {
         let platformkeys = super::LinuxKeys::new();
-        println!("secret key {} bytes : 0x{}", platformkeys.get_keys().secret_key.serialize().len(), hex::encode_upper(platformkeys.get_keys().secret_key.serialize()));
-        println!("compressed public key {} bytes : 0x{}", platformkeys.get_keys().public_key.serialize_compressed().len(), hex::encode_upper(platformkeys.get_keys().public_key.serialize_compressed()));
+        println!("secret key {} bytes : 0x{}", platformkeys.keys.secret_key.serialize().len(), hex::encode_upper(platformkeys.keys.secret_key.serialize()));
+        println!("compressed public key {} bytes : 0x{}", platformkeys.keys.public_key.serialize_compressed().len(), hex::encode_upper(platformkeys.keys.public_key.serialize_compressed()));
     }
 
     #[test]
     fn return_keys() {
         let platformkeys = super::LinuxKeys::new();
-        assert_eq!(platformkeys.get_keys().secret_key.serialize().len(), platformkeys.keys.secret_key.serialize().len());
-        assert_eq!(platformkeys.get_keys().public_key.serialize_compressed().len(), platformkeys.keys.public_key.serialize_compressed().len());
+        assert_eq!(platformkeys.keys.secret_key.serialize().len(), platformkeys.keys.secret_key.serialize().len());
+        assert_eq!(platformkeys.keys.public_key.serialize_compressed().len(), platformkeys.keys.public_key.serialize_compressed().len());
     }
 
     #[test]
@@ -139,7 +153,7 @@ mod tests {
         assert!(result.is_ok());
 
         let platformkeys2 = super::LinuxKeys::from_saved();
-        assert_eq!(platformkeys1.get_keys().secret_key.serialize(), platformkeys2.get_keys().secret_key.serialize());
-        assert_eq!(platformkeys1.get_keys().public_key.serialize_compressed(), platformkeys2.get_keys().public_key.serialize_compressed());
+        assert_eq!(platformkeys1.keys.secret_key.serialize(), platformkeys2.keys.secret_key.serialize());
+        assert_eq!(platformkeys1.keys.public_key.serialize_compressed(), platformkeys2.keys.public_key.serialize_compressed());
     }
 }

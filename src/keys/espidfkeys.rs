@@ -1,8 +1,7 @@
-use libsecp256k1::{PublicKey, PublicKeyFormat, SecretKey};
+use libsecp256k1::{PublicKey, PublicKeyFormat, SecretKey, Signature};
+use super::{Keys, KeysStorage, COMP_PUB_KEY_LEN, ETHEREUM_ADDR_LEN, PRIV_KEY_LEN};
 use esp_idf_svc::nvs::*;
 use std::io::Result;
-
-use super::{Keys, KeysStorage, COMP_PUB_KEY_LEN, PRIV_KEY_LEN};
 
 const PRIV_KEY_FILE: &str = "key";
 const PUB_KEY_FILE: &str = "key.pub";
@@ -18,8 +17,12 @@ impl KeysStorage for EspIdfKeys {
         }
     }
 
-    fn get_keys(&self) -> Keys {
-        self.keys
+    fn generate_new_keys(&mut self) {
+        self.keys.generate_new_keys();
+    }
+
+    fn get_public_key(&self) -> PublicKey {
+        self.keys.public_key
     }
 
     fn from_saved() -> Self {
@@ -121,5 +124,17 @@ impl KeysStorage for EspIdfKeys {
         };
 
         exist_secret_key && exist_public_key
+    }
+
+    fn generate_signature(&self, message: &str) -> Result<Signature> {
+        self.keys.generate_signature(message)
+    }
+
+    fn verify(&self, message: &str, signature: &Signature) -> bool {
+        self.keys.verify(message, signature)
+    }
+
+    fn generate_ethereum_addr(&self) -> [u8; ETHEREUM_ADDR_LEN] {
+        self.keys.generate_ethereum_addr()
     }
 }

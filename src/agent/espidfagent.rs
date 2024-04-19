@@ -8,11 +8,11 @@ use crate::did::Did;
 use crate::keys::espidfkeys::EspIdfKeys;
 use crate::keys::KeysStorage;
 
-pub struct EspIdfAgent<T: KeysStorage::EspIdfKeys> {
+pub struct EspIdfAgent<T: KeysStorage> {
     pub agent: Agent<T>,
 }
 
-impl<T: KeysStorage::EspIdfKeys> AgentTrait<T> for EspIdfAgent<T> {
+impl<T: KeysStorage> AgentTrait<T> for EspIdfAgent<T> {
     fn new(device_name: &str, hostname: &str) -> Self {
         EspIdfAgent {
             agent: super::Agent::new(device_name, hostname),

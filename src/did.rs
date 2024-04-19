@@ -8,7 +8,7 @@ pub struct Did<T>
 where
     T: KeysStorage,
 {
-    platformkeys: T,
+    keys: T,
     method: String,
     identifier: String,
     fragment: [u8; 20],
@@ -23,16 +23,16 @@ impl<T: KeysStorage> Default for Did<T> {
 
 impl<T: KeysStorage> Did<T> {
     pub fn new() -> Self {
-        let platformkeys = T::new();
-        match platformkeys.save() {
+        let keys = T::new();
+        match keys.save() {
             Ok(_) => {}
             Err(e) => panic!("failed to save keys : {:?}", e),
         }
-        let ethereum_addr = platformkeys.get_keys().generate_ethereum_addr();
+        let ethereum_addr = keys.generate_ethereum_addr();
         let scurid_identifier = super::keys::encode_eip55_hex(&ethereum_addr);
 
         Did {
-            platformkeys,
+            keys,
             method: String::from("scurid"),
             identifier: scurid_identifier.to_string(),
             fragment: [0u8; 20],
@@ -41,12 +41,12 @@ impl<T: KeysStorage> Did<T> {
     }
 
     pub fn from_keys() -> Self {
-        let platformkeys = T::from_saved();
-        let ethereum_addr = platformkeys.get_keys().generate_ethereum_addr();
+        let keys = T::from_saved();
+        let ethereum_addr = keys.generate_ethereum_addr();
         let scurid_identifier = super::keys::encode_eip55_hex(&ethereum_addr);
 
         Did {
-            platformkeys,
+            keys,
             method: String::from("scurid"),
             identifier: scurid_identifier.to_string(),
             fragment: [0u8; 20],
@@ -55,7 +55,7 @@ impl<T: KeysStorage> Did<T> {
     }
 
     pub fn create_signature(&self, message: &str) -> Result<SignatureArray> {
-        let signature = self.platformkeys.get_keys().generate_signature(message)?;
+        let signature = self.keys.generate_signature(message)?;
 
         Ok(signature.serialize_der())
     }
@@ -65,11 +65,11 @@ impl<T: KeysStorage> Did<T> {
             Ok(s) => s,
             Err(_) => return false,
         };
-        self.platformkeys.get_keys().verify(message, &sign)
+        self.keys.verify(message, &sign)
     }
 
     pub fn get_public_key(&self) -> String {
-        let compact_pub_key = self.platformkeys.get_keys().public_key.serialize();
+        let compact_pub_key = self.keys.get_public_key().serialize();
         hex::encode(compact_pub_key)
     }
 
@@ -109,7 +109,7 @@ mod tests {
             Err(_) => panic!("failed to parse signature"),
         };
 
-        assert!(did.platformkeys.get_keys().verify(message, &sig));
+        assert!(did.keys.verify(message, &sig));
     }
 
     #[test]
@@ -148,7 +148,7 @@ mod tests {
         let pub_key = did.get_public_key();
 
         assert_eq!(
-            hex::encode(did.platformkeys.get_keys().public_key.serialize()),
+            hex::encode(did.keys.get_public_key().serialize()),
             pub_key
         );
     }
@@ -169,17 +169,17 @@ mod tests {
     fn create_from_existing() {
         let did = super::Did::<LinuxKeys>::from_keys();
 
-        let platformkeys = LinuxKeys::from_saved();
+        let keys = LinuxKeys::from_saved();
 
         assert_eq!(
-            did.platformkeys.get_keys().public_key.serialize(),
-            platformkeys.get_keys().public_key.serialize()
+            did.keys.get_public_key().serialize(),
+            keys.get_public_key().serialize()
         );
 
         let new_did = super::Did::<LinuxKeys>::new();
         assert_ne!(
-            new_did.platformkeys.get_keys().public_key.serialize(),
-            platformkeys.get_keys().public_key.serialize()
+            new_did.keys.get_public_key().serialize(),
+            keys.get_public_key().serialize()
         );
     }
 
@@ -188,8 +188,8 @@ mod tests {
         let did1 = super::Did::<LinuxKeys>::new();
         let did2 = super::Did::<LinuxKeys>::from_keys();
         assert_eq!(
-            did1.platformkeys.get_keys().public_key.serialize(),
-            did2.platformkeys.get_keys().public_key.serialize()
+            did1.keys.get_public_key().serialize(),
+            did2.keys.get_public_key().serialize()
         );
         assert_eq!(did1.to_string(), did2.to_string());
     }
@@ -209,8 +209,8 @@ mod tests {
         };
         let did2 = super::Did::<LinuxKeys>::from_keys();
         assert_ne!(
-            did1.platformkeys.get_keys().public_key.serialize(),
-            did2.platformkeys.get_keys().public_key.serialize()
+            did1.keys.get_public_key().serialize(),
+            did2.keys.get_public_key().serialize()
         );
         assert_ne!(did1.to_string(), did2.to_string());
     }

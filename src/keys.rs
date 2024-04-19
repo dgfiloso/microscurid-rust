@@ -26,10 +26,14 @@ pub struct Keys {
 
 pub trait KeysStorage {
     fn new() -> Self;
-    fn get_keys(&self) -> Keys;
+    fn generate_new_keys(&mut self);
+    fn get_public_key(&self) -> PublicKey;
     fn from_saved() -> Self;
     fn save(&self) -> Result<()>;
     fn exist(&self) -> bool;
+    fn generate_signature(&self, message: &str) -> Result<Signature>;
+    fn verify(&self, message: &str, signature: &Signature) -> bool;
+    fn generate_ethereum_addr(&self) -> [u8; ETHEREUM_ADDR_LEN];
 }
 
 impl Default for Keys {
