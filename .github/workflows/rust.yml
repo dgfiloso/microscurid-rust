@@ -29,6 +29,12 @@ jobs:
         default: true
         buildtargets: esp32s3
         ldproxy: true
+    - name: Create secrets file
+      run: |
+        echo 'pub const WIFI_SSID : &str = "ssid";' > examples/esp32s3/src/secrets.rs
+        echo 'pub const WIFI_PASSWORD : &str = "password";' >> examples/esp32s3/src/secrets.rs
+        echo 'pub const SCURID_SERVER : &str = "192.168.99.99";' >> examples/esp32s3/src/secrets.rs
+        echo 'pub const CA_CERT: &str = "";' >> examples/esp32s3/src/secrets.rs
     - name: Build esp32s3 example
       run: cd examples/esp32s3 && cargo build --verbose
     # Comment unit tests because they are failing when using local files
